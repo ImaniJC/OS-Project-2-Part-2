@@ -7,9 +7,9 @@
 // Feel free to play with these numbers! This is a great way to
 // test your implementation.
 #define BENSCHILLIBOWL_SIZE 100
-#define NUM_CUSTOMERS 60
-#define NUM_COOKS 5
-#define ORDERS_PER_CUSTOMER 6
+#define NUM_CUSTOMERS 90
+#define NUM_COOKS 10
+#define ORDERS_PER_CUSTOMER 3
 #define EXPECTED_NUM_ORDERS NUM_CUSTOMERS * ORDERS_PER_CUSTOMER
 
 // Global variable for the restaurant.
@@ -24,7 +24,19 @@ BENSCHILLIBOWL *bcb;
  */
 void* BENSCHILLIBOWLCustomer(void* tid) {
     int customer_id = (int)(long) tid;
-	return NULL;
+		int i;
+
+		Order* o;
+
+		for (i=0; i<ORDERS_PER_CUSTOMER; i++) {
+			o = (Order*) malloc(sizeof(Order));
+			o->menu_item = PickRandomMenuItem();
+			o->customer_id = customer_id;
+			o->order_number = AddOrder(bcb, o);
+      printf("Customer #%d added Order #%d\n", customer_id, o->order_number);
+
+      o->next = NULL;
+		}
 }
 
 /**
@@ -36,12 +48,18 @@ void* BENSCHILLIBOWLCustomer(void* tid) {
  * receive an order.
  */
 void* BENSCHILLIBOWLCook(void* tid) {
-    int cook_id = (int)(long) tid;
+    int cook = (int)(long) tid;
 	int orders_fulfilled = 0;
-	printf("Cook #%d fulfilled %d orders\n", cook_id, orders_fulfilled);
-	return NULL;
+	
+	Order* o = GetOrder(bcb);
+	while (o != NULL) {
+		free (o);
+		orders_fulfilled++;
+ 		o = GetOrder(bcb);
+	}
+ 
+  printf("Cook #%d fulfilled %d orders\n", cook, orders_fulfilled);
 }
-
 /**
  * Runs when the program begins executing. This program should:
  *  - open the restaurant
@@ -50,5 +68,50 @@ void* BENSCHILLIBOWLCook(void* tid) {
  *  - close the restaurant.
  */
 int main() {
-    return 0;
+	int i;
+	pthread_t customer[NUM_CUSTOMERS];
+	pthread_t cook[NUM_COOKS];
+
+	int cust_id[NUM_CUSTOMERS], cook_id[NUM_COOKS];
+
+	bcb = OpenRestaurant(BENSCHILLIBOWL_SIZE, EXPECTED_NUM_ORDERS);
+    // customers thread
+	for (i=0; i < NUM_CUSTOMERS; i++) {
+		cust_id[i] = i;
+    // BENSCHILLIBOWLCustomer() function
+    int err = pthread_create(&customer[i], NULL, &BENSCHILLIBOWLCustomer, &(cust_id[i]));
+
+    // is thread a success, if not 
+    if (err != 0) {
+        printf("Thread creation failed\n");
+        exit(1);
+    }
+ 
+	}
+
+	// create cooks thread
+	for (i=0; i < NUM_COOKS; i++) {
+		cook_id[i] = i;
+		// Create a thread that will function BENSCHILLIBOWLCook()
+    int err = pthread_create(&cook[i], NULL, &BENSCHILLIBOWLCook, &(cook_id[i]));
+
+    // is thread a success
+    if (err != 0) {
+        printf("Thread creation failed\n");
+        exit(1);
+    }	
+	}
+
+	// join method for customers
+	for (i=0; i < NUM_CUSTOMERS; i++) {
+		pthread_join(customer[i], NULL);
+	}
+
+	// join method for cooks
+	for (i=0; i < NUM_COOKS; i++) {
+		pthread_join(cook[i], NULL);
+	}
+
+	CloseRestaurant(bcb);
+  return 0;
 }
