@@ -1,4 +1,4 @@
-// Worked with Amira 
+//received help from Amira 
 
 #include "BENSCHILLIBOWL.h"
 
